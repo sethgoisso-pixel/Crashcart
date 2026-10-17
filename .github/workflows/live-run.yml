@@ -1,0 +1,68 @@
+name: Live run
+
+# Manual only. A real model plays the shopper against the attack scenarios and the
+# measured results are committed to data/runs/. Needs the repository secret LLM_API_KEY
+# (Settings > Secrets and variables > Actions). Use fictional data only: the free
+# Google AI Studio tier may use prompts to improve Google products.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model id (run the 'List models' workflow to see valid ids)"
+        required: true
+        default: "gemini-3.1-flash-lite"
+      runs:
+        description: "Runs per scenario (1-50)"
+        required: true
+        default: "3"
+      prompt:
+        description: "Prompt variant"
+        type: choice
+        options: [plain, hardened]
+        default: plain
+      rpm:
+        description: "Max requests per minute"
+        required: true
+        default: "8"
+      only:
+        description: "Optional: comma-separated scenario ids (empty = all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          RUNS: ${{ inputs.runs }}
+          PROMPT: ${{ inputs.prompt }}
+          RPM: ${{ inputs.rpm }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          args=(--model "$MODEL" --runs "$RUNS" --prompt "$PROMPT" --rpm "$RPM")
+          if [ -n "$ONLY" ]; then args+=(--only "$ONLY"); fi
+          node src/run.ts "${args[@]}"
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runs
+          git commit -m "Add live run results" || echo "nothing to commit"
+          git pull --rebase
+          git push
