@@ -1,0 +1,21 @@
+name: List models
+
+# Manual only. Prints the model ids your Google AI Studio key can use with generateContent.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: List
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: node src/run.ts --list-models
