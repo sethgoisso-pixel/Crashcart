@@ -1,0 +1,17 @@
+{
+  "name": "crashcart",
+  "version": "0.1.0",
+  "description": "Crash-test lab for AI shopping agents, built on the PayPal sandbox.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test \"tests/*.test.ts\"",
+    "selfcheck": "node src/selfcheck.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
