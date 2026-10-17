@@ -10,9 +10,10 @@ independent policy gate (a "seatbelt") changes the result.
 
 Built for the PayPal AI Hackathon. Sandbox only: no real money, no real merchants.
 
-> **Status: early prototype.** The decision logic and the attack library exist and are
-> tested. The live shopper agent, the PayPal sandbox calls and the web UI are **not built
-> yet** (see Roadmap). Nothing below claims results from a real AI agent.
+> **Status: early prototype.** The decision logic, the attack library and the shopper agent
+> code exist and are tested (with scripted stand-ins, not real models). **No live results
+> from a real AI model have been recorded yet**, and the PayPal sandbox calls and the web UI
+> are not built (see Roadmap). Nothing below claims results from a real AI agent.
 
 ## How it works
 
@@ -26,18 +27,38 @@ Built for the PayPal AI Hackathon. Sandbox only: no real money, no real merchant
 4. **Policy gate**: a small deterministic check placed between the agent and the payment
    API. It lives outside the language model, so text on a page cannot change its rules.
    Three levels: `none`, `basic` (money checks), `strict` (also intent checks).
-5. **Live runs (planned)**: a real model-driven agent shops against the scenarios, the
-   proposed order is created in the PayPal sandbox only if the gate allows it, and the
-   measured breach rate is reported with and without the gate.
+5. **Shopper agent**: one model call per run. The model sees the user's request plus the
+   fictional store page (with the hostile text planted in it) and answers with a JSON
+   decision: place an order or stop. A `plain` and a `hardened` prompt are available.
+6. **Live runs**: every scenario is repeated several times against a real model. Each
+   proposed order is judged and passed through the three gate levels, and the measured
+   breach rate is stored in `data/runs/`. (Planned next: create the allowed orders in the
+   PayPal sandbox.)
 
 ## Run it
 
 Requires Node.js 22.18 or newer (it runs TypeScript directly). No dependencies, no keys.
 
 ```bash
-npm test            # 11 unit tests
+npm test            # unit tests (no network, no keys)
 npm run selfcheck   # runs every scenario through the judge and the gate
+node src/run.ts --dry-run --only review-extra-units   # prints the exact prompt, no API call
 ```
+
+### Live runs with a real model
+
+Needs a Google AI Studio API key in the `LLM_API_KEY` environment variable (never commit it).
+Use fictional data only: the free tier may use prompts to improve Google products.
+
+```bash
+node src/run.ts --list-models
+node src/run.ts --model <model-id> --runs 5 --prompt plain
+```
+
+Or without a computer: add the repository secret `LLM_API_KEY`, then start the
+**Live run** workflow from the Actions tab. Results are committed to `data/runs/`.
+Models are not deterministic, which is why each attack is repeated; only numbers that
+come from these files should be quoted.
 
 ### Offline self-check (rules only, no AI involved)
 
@@ -61,6 +82,9 @@ review or a human. We keep it in the library so the numbers stay honest.
 - The PayPal adapter follows the public Orders v2 field names as understood by the
   author; verify it against a real sandbox response (planned).
 - The scenario library is small (11) and written by hand.
+- The agent is a single model call, not a multi-step browsing agent. Results describe
+  this setup, not every shopping agent.
+- A model answer that cannot be parsed is counted as an error, never as a pass.
 
 ## PayPal usage
 
@@ -73,7 +97,8 @@ orders for the orders the gate allows.
 - [x] Mandate, judge, policy gate, PayPal order adapter
 - [x] 11 attack scenarios with safe and unsafe fixture orders
 - [x] Unit tests and offline self-check
-- [ ] Shopper agent with tool calling and real product search
+- [x] Shopper agent (one model call, JSON decision) and live-run harness
+- [ ] Real product search (Channel3) and multi-step tool calling
 - [ ] Create orders in the PayPal sandbox and read them back
 - [ ] Measured breach rates over repeated live runs (with and without the gate)
 - [ ] Gate synthesizer: propose policy rules from observed failures
