@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createGeminiClient, listGeminiModels } from "./agent/llm.ts";
 import { runScenarios, summarize } from "./agent/runner.ts";
 import { buildPrompt, type PromptVariant } from "./agent/shopper.ts";
+import { createSandboxOrder, getAccessToken } from "./paypal/sandbox.ts";
 import { scenarios as level1 } from "./scenarios/index.ts";
 import { scenariosL2 as level2 } from "./scenarios/level2.ts";
 
@@ -68,6 +69,25 @@ if (!Number.isInteger(runs) || runs < 1 || runs > 50) {
   process.exit(2);
 }
 
+// Optional: create sandbox orders in PayPal for every order the chosen gate level allows.
+//   --paypal strict | basic | none     (none = no seatbelt: every order the agent proposes is created)
+const paypalGate = arg("paypal");
+let paypal: Parameters<typeof runScenarios>[2]["paypal"];
+if (paypalGate) {
+  if (paypalGate !== "none" && paypalGate !== "basic" && paypalGate !== "strict") {
+    console.error("--paypal must be none, basic or strict");
+    process.exit(2);
+  }
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    console.error("--paypal needs PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET (sandbox app credentials).");
+    process.exit(2);
+  }
+  const token = await getAccessToken({ clientId, clientSecret });
+  paypal = { gate: paypalGate, create: (order, ref) => createSandboxOrder(token, order, ref) };
+}
+
 const llm = createGeminiClient({ apiKey, model, temperature });
 const startedAt = new Date().toISOString();
 console.log(`Model ${model} | prompt ${variant} | ${picked.length} scenarios x ${runs} runs | max ${rpm} requests/min`);
@@ -76,9 +96,11 @@ const { records, aborted } = await runScenarios(llm, picked, {
   runs,
   variant,
   rpm,
+  paypal,
   onRecord: (r) => {
     const verdict = r.status === "order" ? (r.breaches.length ? `BREACH ${r.breaches.join(",")}` : "faithful") : r.status === "stop" ? "stopped" : `error: ${r.error}`;
-    console.log(`${r.scenarioId.padEnd(26)} #${r.run}  ${verdict}`);
+    const pp = r.paypal ? (r.paypal.error ? `  PayPal ERROR: ${r.paypal.error.slice(0, 80)}` : `  PayPal sandbox order ${r.paypal.id} (${r.paypal.status})`) : "";
+    console.log(`${r.scenarioId.padEnd(26)} #${r.run}  ${verdict}${pp}`);
   },
 });
 
@@ -90,6 +112,11 @@ console.log(`agent breached the mandate: ${summary.breached}/${summary.valid} ($
 for (const l of ["none", "basic", "strict"] as const) {
   console.log(`  still goes through with gate ${l.padEnd(6)}: ${summary.leaked[l]}/${summary.valid} (${pct(summary.leaked[l])})   faithful orders wrongly blocked: ${summary.falseBlocks[l]}`);
 }
+if (paypalGate) {
+  const made = records.filter((r) => r.paypal?.id).length;
+  const failed = records.filter((r) => r.paypal?.error).length;
+  console.log(`PayPal sandbox (gate ${paypalGate}): ${made} orders created, ${failed} failed`);
+}
 if (aborted) console.log(`\nSTOPPED EARLY: ${aborted}`);
 
 mkdirSync("data/runs", { recursive: true });
@@ -98,7 +125,7 @@ const file = `data/runs/${model.replace(/[^a-z0-9.-]/gi, "_")}__${variant}__${st
 writeFileSync(
   file,
   JSON.stringify(
-    { meta: { model, promptVariant: variant, level: only ? "custom" : levelArg, runsPerScenario: runs, temperature, rpm, startedAt, finishedAt: new Date().toISOString(), aborted: aborted ?? null }, summary, records },
+    { meta: { model, promptVariant: variant, paypalGate: paypalGate ?? null, level: only ? "custom" : levelArg, runsPerScenario: runs, temperature, rpm, startedAt, finishedAt: new Date().toISOString(), aborted: aborted ?? null }, summary, records },
     null,
     2
   )
