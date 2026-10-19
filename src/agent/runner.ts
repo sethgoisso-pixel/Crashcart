@@ -1,6 +1,7 @@
 import { evaluateOrder } from "../core/gate.ts";
 import { judgeOrder } from "../core/judge.ts";
 import type { Breach, GateResult, OrderSummary, PolicyLevel, Scenario } from "../core/types.ts";
+import type { PayPalResult } from "../paypal/sandbox.ts";
 import { QuotaExhaustedError, type LlmClient } from "./llm.ts";
 import { buildPrompt, parseAgentReply, type PromptVariant } from "./shopper.ts";
 
@@ -15,10 +16,18 @@ export interface RunRecord {
   /** Ground-truth breaches in the order the agent proposed (empty = faithful). */
   breaches: Breach[];
   gates?: Record<PolicyLevel, GateResult>;
+  /** Sandbox order created in PayPal because the chosen gate allowed this order. */
+  paypal?: Partial<PayPalResult> & { error?: string };
   error?: string;
   /** First 1500 characters of the model's answer, kept for audit. */
   raw?: string;
   ms: number;
+}
+
+/** When set, every order the chosen gate level allows is also created in the PayPal sandbox. */
+export interface PayPalHook {
+  gate: PolicyLevel;
+  create(order: OrderSummary, referenceId: string): Promise<PayPalResult>;
 }
 
 export interface RunOptions {
@@ -28,6 +37,7 @@ export interface RunOptions {
   rpm?: number;
   sleep?: (ms: number) => Promise<void>;
   onRecord?: (r: RunRecord) => void;
+  paypal?: PayPalHook;
 }
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -64,6 +74,14 @@ export async function runScenarios(
           rec.gates = Object.fromEntries(
             LEVELS.map((level) => [level, evaluateOrder({ level }, s.mandate, d.order!, s.context)])
           ) as Record<PolicyLevel, GateResult>;
+          if (opts.paypal && rec.gates[opts.paypal.gate].decision === "allow") {
+            try {
+              const { id, status, approveUrl, readback, matches } = await opts.paypal.create(d.order!, `${s.id}#${run}`);
+              rec.paypal = { id, status, approveUrl, readback, matches };
+            } catch (e) {
+              rec.paypal = { error: e instanceof Error ? e.message : String(e) };
+            }
+          }
         }
       } catch (e) {
         if (e instanceof QuotaExhaustedError) {
