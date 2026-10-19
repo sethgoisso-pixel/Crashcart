@@ -1,0 +1,25 @@
+name: PayPal check
+
+# Manual only. Creates ONE sandbox order and reads it back, to prove the PayPal sandbox
+# connection works. Needs the repository secrets PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET
+# (Sandbox app credentials). No real money is involved.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create and read back a sandbox order
+        env:
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+        run: node src/paypal-check.ts
