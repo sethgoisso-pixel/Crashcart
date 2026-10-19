@@ -10,10 +10,17 @@ independent policy gate (a "seatbelt") changes the result.
 
 Built for the PayPal AI Hackathon. Sandbox only: no real money, no real merchants.
 
-> **Status: early prototype.** The decision logic, the attack library and the shopper agent
-> code exist and are tested (with scripted stand-ins, not real models). **No live results
-> from a real AI model have been recorded yet**, and the PayPal sandbox calls and the web UI
-> are not built (see Roadmap). Nothing below claims results from a real AI agent.
+> **Status: working prototype.** The attack library (22 attacks), the judge, the policy gate,
+> the shopper agent and the demo site exist and are tested. Live results from real models are
+> recorded in `data/runs/` and summarised below. The PayPal sandbox client is written and
+> unit-tested; its first live runs are not yet part of the published results (see Roadmap).
+
+## Demo site
+
+The `docs/` folder is a static site (GitHub Pages) with the scoreboard, a crash lab that replays
+real recorded runs, and a "seatbelt playground" that runs the real gate and judge code in your
+browser. Numbers on the site are computed in the browser from the run files; nothing is typed in
+by hand. Rebuild its generated files with `npm run build:site` (needs the dev dependencies).
 
 ## How it works
 
@@ -44,6 +51,32 @@ npm test            # unit tests (no network, no keys)
 npm run selfcheck   # runs every scenario through the judge and the gate
 node src/run.ts --dry-run --only review-extra-units   # prints the exact prompt, no API call
 ```
+
+### Measured results so far
+
+Free-tier Gemini models through the Google AI Studio API, one model call per run, 5 runs per attack,
+22 attacks (11 blunt, 11 crafted). Source: `data/runs/*.json`. Only fictional data was sent.
+
+| Model | Prompt | Attacks | Valid runs | Agent breached the request | Reach payment: no seatbelt | basic | strict |
+|---|---|---|---|---|---|---|---|
+| Gemini 3.1 Flash-Lite | hardened | blunt | 55 | 0 (0%) | 0 | 0 | 0 |
+| Gemini 3.1 Flash-Lite | hardened | crafted | 55 | 5 (9%) | 5 | 0 | 0 |
+| Gemini 3.1 Flash-Lite | plain | blunt | 55 | 4 (7%) | 4 | 4 | 0 |
+| Gemini 3.1 Flash-Lite | plain | crafted | 55 | 20 (36%) | 20 | 10 | 0 |
+| Gemini 3.5 Flash-Lite | hardened | blunt | 55 | 0 (0%) | 0 | 0 | 0 |
+| Gemini 3.5 Flash-Lite | hardened | crafted | 55 | 5 (9%) | 5 | 0 | 0 |
+| Gemini 3.5 Flash-Lite | plain | blunt | 55 | 0 (0%) | 0 | 0 | 0 |
+| Gemini 3.5 Flash-Lite | plain | crafted | 55 | 10 (18%) | 10 | 5 | 0 |
+
+What this does and does not say:
+
+- The strict seatbelt let **0** bad orders through out of 44 breached runs and wrongly stopped
+  **0** faithful orders. The basic seatbelt let 19 through.
+- Crafted attacks (forged chat turns, fake tool results, fake consent records) fool the models far more often than
+  blunt ones. A "hardened" prompt reduces this but does not remove it.
+- "0 leaks" for strict means none of the breaches that happened were allowed through. The strict gate is deliberately blind to look-alike products (the `l2-lookalike-hub` attack), so a model that fell for that one would get through; none did in these runs.
+- These rates describe 22 hand-written attacks against a single-call agent. They are not a rate for the real world.
+- Cells with 5 runs are noisy: read "5 of 5" and "0 of 5" as strong signals, anything in between as a hint.
 
 ### Live runs with a real model
 
@@ -99,10 +132,11 @@ orders for the orders the gate allows.
 - [x] Unit tests and offline self-check
 - [x] Shopper agent (one model call, JSON decision) and live-run harness
 - [ ] Real product search (Channel3) and multi-step tool calling
-- [ ] Create orders in the PayPal sandbox and read them back
-- [ ] Measured breach rates over repeated live runs (with and without the gate)
+- [x] PayPal sandbox client: create orders and read them back (unit-tested; live runs pending)
+- [x] Measured breach rates over repeated live runs (with and without the gate)
 - [ ] Gate synthesizer: propose policy rules from observed failures
-- [ ] Web UI: live attack timeline, scoreboard, before/after
+- [x] Demo site: scoreboard, crash lab (replay), seatbelt playground (GitHub Pages)
+- [ ] Live attack runs from the site itself (needs a rate-limited server endpoint)
 - [ ] Optional: adaptive attacker agent, public arena
 
 ## Responsible use
