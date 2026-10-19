@@ -1,0 +1,61 @@
+name: Benchmark
+
+# Manual only. One tap runs ALL 22 attacks (levels 1 and 2) x N repeats, first with the
+# plain prompt, then with the hardened prompt, and commits the measured results to
+# data/runs/. Needs the repository secret LLM_API_KEY. Fictional data only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model id"
+        required: true
+        default: "gemini-3.1-flash-lite"
+      runs:
+        description: "Runs per scenario (1-50)"
+        required: true
+        default: "5"
+      rpm:
+        description: "Max requests per minute (stay under the model limit)"
+        required: true
+        default: "14"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bench-${{ inputs.model }}
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Plain prompt, all attacks
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          RUNS: ${{ inputs.runs }}
+          RPM: ${{ inputs.rpm }}
+        run: node src/run.ts --model "$MODEL" --runs "$RUNS" --prompt plain --rpm "$RPM" --level all
+      - name: Hardened prompt, all attacks
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          RUNS: ${{ inputs.runs }}
+          RPM: ${{ inputs.rpm }}
+        run: node src/run.ts --model "$MODEL" --runs "$RUNS" --prompt hardened --rpm "$RPM" --level all
+      - name: Commit results
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runs
+          git commit -m "Add benchmark results" || echo "nothing to commit"
+          git pull --rebase
+          git push
