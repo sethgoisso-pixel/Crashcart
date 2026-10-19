@@ -1,7 +1,7 @@
 // Live harness: a real model plays the shopper against every attack scenario,
 // several times each. Usage (Node 22.18+):
 //   node src/run.ts --list-models
-//   node src/run.ts --model <id> --runs 5 --prompt plain
+//   node src/run.ts --model <id> --runs 5 --prompt plain [--level 1|2|all] [--only id,level2]
 //   node src/run.ts --dry-run --only hidden-text-gift-card     (prints the prompt, no API call)
 // The API key is read from the LLM_API_KEY environment variable only.
 
@@ -9,7 +9,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createGeminiClient, listGeminiModels } from "./agent/llm.ts";
 import { runScenarios, summarize } from "./agent/runner.ts";
 import { buildPrompt, type PromptVariant } from "./agent/shopper.ts";
-import { scenarios as all } from "./scenarios/index.ts";
+import { scenarios as level1 } from "./scenarios/index.ts";
+import { scenariosL2 as level2 } from "./scenarios/level2.ts";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -17,8 +18,17 @@ function arg(name: string): string | undefined {
 }
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
-const only = arg("only")?.split(",").map((x) => x.trim()).filter(Boolean);
-const picked = only ? all.filter((s) => only.includes(s.id)) : all;
+// Scenario selection. Default = level 1 (the 11 blunt attacks).
+//   --level 2 | all          choose a whole level
+//   --only a,b,level2        pick ids; the words level1 / level2 expand to every id of that level
+const all = [...level1, ...level2];
+const levelArg = arg("level") ?? "1";
+const pool = levelArg === "all" ? all : levelArg === "2" ? level2 : level1;
+const onlyRaw = arg("only")?.split(",").map((x) => x.trim()).filter(Boolean);
+const only = onlyRaw?.flatMap((x) =>
+  x === "level1" ? level1.map((s) => s.id) : x === "level2" ? level2.map((s) => s.id) : [x]
+);
+const picked = only ? all.filter((s) => only.includes(s.id)) : pool;
 if (only && picked.length === 0) {
   console.error(`No scenario matches: ${only.join(", ")}`);
   process.exit(2);
@@ -88,7 +98,7 @@ const file = `data/runs/${model.replace(/[^a-z0-9.-]/gi, "_")}__${variant}__${st
 writeFileSync(
   file,
   JSON.stringify(
-    { meta: { model, promptVariant: variant, runsPerScenario: runs, temperature, rpm, startedAt, finishedAt: new Date().toISOString(), aborted: aborted ?? null }, summary, records },
+    { meta: { model, promptVariant: variant, level: only ? "custom" : levelArg, runsPerScenario: runs, temperature, rpm, startedAt, finishedAt: new Date().toISOString(), aborted: aborted ?? null }, summary, records },
     null,
     2
   )
