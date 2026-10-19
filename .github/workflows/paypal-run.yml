@@ -1,0 +1,74 @@
+name: PayPal run
+
+# Manual only. A real model shops against the attacks; every order the chosen policy level
+# allows is ALSO created in the PayPal sandbox. Results are committed to data/runs/.
+# Needs the secrets LLM_API_KEY, PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET. Sandbox only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model id"
+        required: true
+        default: "gemini-3.1-flash-lite"
+      runs:
+        description: "Runs per scenario (1-50)"
+        required: true
+        default: "1"
+      level:
+        description: "Attack level"
+        type: choice
+        options: ["1", "2", "all"]
+        default: "2"
+      gate:
+        description: "Policy level that decides which orders reach PayPal (none = no seatbelt)"
+        type: choice
+        options: [strict, basic, none]
+        default: strict
+      prompt:
+        description: "Prompt variant"
+        type: choice
+        options: [plain, hardened]
+        default: plain
+      rpm:
+        description: "Max requests per minute"
+        required: true
+        default: "14"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paypal-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+          MODEL: ${{ inputs.model }}
+          RUNS: ${{ inputs.runs }}
+          LEVEL: ${{ inputs.level }}
+          GATE: ${{ inputs.gate }}
+          PROMPT: ${{ inputs.prompt }}
+          RPM: ${{ inputs.rpm }}
+        run: node src/run.ts --model "$MODEL" --runs "$RUNS" --level "$LEVEL" --paypal "$GATE" --prompt "$PROMPT" --rpm "$RPM"
+      - name: Commit results
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runs
+          git commit -m "Add PayPal run results" || echo "nothing to commit"
+          git pull --rebase
+          git push
