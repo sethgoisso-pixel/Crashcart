@@ -82,7 +82,7 @@ export function createGeminiClient(opts: GeminiOptions): LlmClient {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: opts.temperature ?? 0.7,
-              maxOutputTokens: opts.maxOutputTokens ?? 1024,
+              maxOutputTokens: opts.maxOutputTokens ?? 4096,
             },
           }),
         });
