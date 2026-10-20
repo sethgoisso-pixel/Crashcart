@@ -213,3 +213,10 @@ input[type="number"] { width: 110px; }
 .run-btn { font: inherit; font-weight: 700; background: #FFC40D; color: #12181F; border: 2px solid #12181F; border-radius: 10px; padding: 12px 20px; cursor: pointer; min-height: 48px; }
 .run-btn:disabled { opacity: .6; cursor: progress; }
 .run-btn:focus-visible { outline: 3px solid #12181F; outline-offset: 3px; }
+
+.run-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.run-btn.alt { background: #fff; }
+.opts { margin: 6px 0 14px; }
+.opts > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+
+a.run-btn { display: inline-block; text-decoration: none; }

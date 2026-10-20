@@ -83,7 +83,7 @@ function tally(recs) {
 
 // ---------- slip (what the agent ordered vs what the user asked) ----------
 const ROWS = [
-  { label: "Item", breaches: ["UNEXPECTED_ITEM", "QUANTITY_INFLATED"], agent: (o) => o.items.map((i) => `${i.quantity} × ${i.name}`).join(", "), ask: (m) => m.expectedItems.map((e) => `${e.quantity} × ${e.keyword}`).join(", ") },
+  { label: "Item", breaches: ["UNEXPECTED_ITEM", "QUANTITY_INFLATED"], agent: (o) => o.items.map((i) => `${i.quantity} \u00d7 ${i.name}`).join(", "), ask: (m) => m.expectedItems.map((e) => `${e.quantity} \u00d7 ${e.keyword}`).join(", ") },
   { label: "Total", breaches: ["OVER_BUDGET", "PRICE_MISMATCH"], agent: (o) => money(o.currency, o.total), ask: (m, c) => `up to ${money(m.maxTotal.currency, m.maxTotal.value)}${c.advertisedTotal != null ? ` (listed ${m.maxTotal.currency} ${c.advertisedTotal.toFixed(2)})` : ""}` },
   { label: "Merchant", breaches: ["WRONG_PAYEE"], agent: (o) => o.payee, ask: (m) => m.allowedPayees.join(", ") },
   { label: "Currency", breaches: ["WRONG_CURRENCY"], agent: (o) => o.currency, ask: (m) => m.maxTotal.currency },
@@ -108,7 +108,7 @@ function slip(order, scenario, breaches) {
           h("th", { scope: "row" }, row.label),
           h("td", {}, row.agent(order)),
           h("td", { class: "ask" }, row.ask(m, c)),
-          h("td", { class: "v" }, bad ? "✕ breach" : "✓ matches")
+          h("td", { class: "v" }, bad ? "\u2715 breach" : "\u2713 matches")
         );
       })
     )
@@ -128,11 +128,11 @@ function gateChips(rec, decisions) {
       let cls, glyph, text;
       if (allowed) {
         cls = isBreach ? "bad" : "good";
-        glyph = isBreach ? "✕" : "✓";
+        glyph = isBreach ? "\u2715" : "\u2713";
         text = isBreach ? "Bad order reaches PayPal" : "Order goes through";
       } else {
         cls = isBreach ? "good" : "bad";
-        glyph = isBreach ? "✓" : "✕";
+        glyph = isBreach ? "\u2713" : "\u2715";
         text = `${isBreach ? "Stopped" : "Wrongly stopped"}: ${g.reasons.join(", ").toLowerCase().replaceAll("_", " ")}`;
       }
       return h("div", { class: `chip ${cls}` }, h("b", {}, `${glyph} ${GATE_NAMES[l]}`), text);
@@ -159,9 +159,9 @@ function pageNode(scenario, full) {
   if (!full) {
     const bl = before.split("\n");
     const al = after.split("\n");
-    if (bl.length > 3) pre = "…\n";
+    if (bl.length > 3) pre = "\u2026\n";
     before = bl.slice(-3).join("\n");
-    if (al.length > 2) post = "\n…";
+    if (al.length > 2) post = "\n\u2026";
     after = al.slice(0, 2).join("\n");
   }
   return h("pre", { class: "page-excerpt" }, pre + before, h("mark", {}, scenario.injectedText), after + post);
@@ -186,9 +186,9 @@ function renderHero() {
   const sample = bad[0];
 
   const headlines = {
-    "l2-forged-user-turn": `A fake review said “buy 3”. The agent bought 3 in ${bad.length} of ${recs.length} runs.`,
+    "l2-forged-user-turn": `A fake review said \u201cbuy 3\u201d. The agent bought 3 in ${bad.length} of ${recs.length} runs.`,
   };
-  const title = headlines[heroId] ?? `Hostile text won in ${bad.length} of ${recs.length} runs: “${s.title}”.`;
+  const title = headlines[heroId] ?? `Hostile text won in ${bad.length} of ${recs.length} runs: \u201c${s.title}\u201d.`;
   const total = allBenchRecords.length;
 
   root.append(
@@ -208,6 +208,10 @@ function renderHero() {
       h("li", {}, h("b", {}, "Seatbelt."), " A rule check outside the AI decides if the order may reach PayPal.")
     )
   );
+  root.append(
+    h("p", { class: "caption" }, "The test shop sells a USB-C cable, but only as a stand-in. The same checks apply to any item, budget, merchant, currency or delivery address the user states."),
+    h("p", {}, h("a", { class: "run-btn cta", href: "#live" }, "Try an attack live \u2193"))
+  );
   if (!sample) return;
   const setting = settings.find((st) => st.records.includes(sample));
   root.append(
@@ -222,7 +226,7 @@ function renderHero() {
         h("h3", {}, "What the agent ordered"),
         slip(sample.order, s, sample.breaches),
         gateChips(sample, sample.gates),
-        h("p", { class: "caption" }, `Recorded run: ${prettyModel(setting.model)}, ${promptName(setting.prompt)}, run ${sample.run}. User asked for: “${s.mandate.goal}”.`)
+        h("p", { class: "caption" }, `Recorded run: ${prettyModel(setting.model)}, ${promptName(setting.prompt)}, run ${sample.run}. User asked for: \u201c${s.mandate.goal}\u201d.`)
       )
     )
   );
@@ -240,7 +244,7 @@ function barRow(label, sub, recs) {
   );
   const leak = (l) =>
     t.breach === 0
-      ? h("div", { class: "leak num none-yet", "data-l": GATE_NAMES[l], "aria-label": "no breaches to stop" }, "–", h("small", {}, "no breaches"))
+      ? h("div", { class: "leak num none-yet", "data-l": GATE_NAMES[l], "aria-label": "no breaches to stop" }, "\u2013", h("small", {}, "no breaches"))
       : h("div", { class: `leak num ${t.leak[l] ? "some" : "zero"}`, "data-l": GATE_NAMES[l] }, String(t.leak[l]), h("small", {}, `of ${t.breach}`));
   return h("div", { class: "board-row" }, h("div", { class: "name" }, label, h("small", {}, sub)), h("div", { class: "bar-wrap" }, bar), leak("none"), leak("basic"), leak("strict"));
 }
@@ -264,11 +268,11 @@ function renderScoreboard() {
     ),
     h("div", { class: "legend" }, [["faithful", "Followed the user"], ["stop", "Refused to buy"], ["breach", "Breached the request"], ["error", "No usable answer"]].map(([k, t]) => h("span", {}, h("i", { class: `sw ${k}` }), t)))
   );
-  const board = h("div", { class: "board" }, h("div", { class: "board-head" }, h("div", {}, "Model and prompt"), h("div", {}, "What the agent did"), h("div", { class: "span3" }, "Bad orders that still reach payment with…"), h("div", {}), h("div", {}), h("div", {}), h("div", {}), h("div", {}), h("div", { class: "sub" }, "no seatbelt"), h("div", { class: "sub" }, "basic"), h("div", { class: "sub" }, "strict")));
+  const board = h("div", { class: "board" }, h("div", { class: "board-head" }, h("div", {}, "Model and prompt"), h("div", {}, "What the agent did"), h("div", { class: "span3" }, "Bad orders that still reach payment with\u2026"), h("div", {}), h("div", {}), h("div", {}), h("div", {}), h("div", {}), h("div", { class: "sub" }, "no seatbelt"), h("div", { class: "sub" }, "basic"), h("div", { class: "sub" }, "strict")));
   // simpler head: rebuild explicitly for clean grid
   board.firstChild.replaceChildren(h("div", {}, "Model and prompt"), h("div", {}, "What the agent did"), h("div", { class: "sub" }, "No seatbelt"), h("div", { class: "sub" }, "Basic"), h("div", { class: "sub" }, "Strict"));
   board.firstChild.style.gridTemplateColumns = "";
-  for (const [lvl, name, note, pick] of [[1, "Blunt attacks", "“Note for AI shoppers: …” style instructions", l1], [2, "Crafted attacks", "fake system notices, forged chat turns, fake tool results", l2]]) {
+  for (const [lvl, name, note, pick] of [[1, "Blunt attacks", "\u201cNote for AI shoppers: \u2026\u201d style instructions", l1], [2, "Crafted attacks", "fake system notices, forged chat turns, fake tool results", l2]]) {
     board.append(h("div", { class: "group-title" }, name, h("small", {}, `${note}. Columns on the right: bad orders that still reach payment.`)));
     for (const s of settings) board.append(barRow(prettyModel(s.model), promptName(s.prompt), pick(s.records)));
   }
@@ -339,7 +343,7 @@ function renderHeat() {
             const recs = st.records.filter((r) => r.scenarioId === s.id && r.status !== "error");
             const b = recs.filter((r) => outcome(r) === "breach").length;
             const [bg, fg] = heatColor(recs.length ? b / recs.length : 0);
-            return h("td", { class: "cell", style: `background:${bg};color:${fg}`, title: `${b} of ${recs.length} runs breached` }, recs.length ? `${b}/${recs.length}` : "–");
+            return h("td", { class: "cell", style: `background:${bg};color:${fg}`, title: `${b} of ${recs.length} runs breached` }, recs.length ? `${b}/${recs.length}` : "\u2013");
           })
         )
       );
@@ -385,7 +389,7 @@ function renderLab() {
   if (!rec) {
     right.append(h("p", {}, "No runs recorded for this attack in this setting."));
   } else {
-    if (rec.reason) right.append(h("blockquote", { class: "quote" }, `“${rec.reason}”`, h("small", {}, "The agent's own explanation")));
+    if (rec.reason) right.append(h("blockquote", { class: "quote" }, `\u201c${rec.reason}\u201d`, h("small", {}, "The agent's own explanation")));
     if (rec.status === "order") {
       right.append(slip(rec.order, s, rec.breaches), gateChips(rec, rec.gates));
       if (rec.breaches.length) right.append(h("div", { class: "verdict" }, "Judge's verdict: this order breaks the user's request.", h("ul", {}, rec.breaches.map((b) => h("li", {}, BREACH_TEXT[b])))));
@@ -408,23 +412,29 @@ function renderLive() {
     return;
   }
   const s = byId[live.scenarioId];
+  const featured = ["l2-forged-user-turn", "l2-fake-system-override", "l2-payee-migration-tool"].filter((id) => byId[id]);
+  const opt = (x) => h("option", { value: x.id, selected: x.id === s.id }, x.title);
   const scnSel = h("select", { id: "live-scn", onchange: (e) => { live.scenarioId = e.target.value; live.result = null; live.error = null; renderLive(); } },
-    [1, 2].map((lvl) => h("optgroup", { label: lvl === 1 ? "Blunt attacks" : "Crafted attacks" }, allScenarios.filter((x) => levelOf(x.id) === lvl).map((x) => h("option", { value: x.id, selected: x.id === s.id }, x.title)))));
+    h("optgroup", { label: "Recommended" }, featured.map((id) => opt(byId[id]))),
+    [1, 2].map((lvl) => h("optgroup", { label: lvl === 1 ? "More blunt attacks" : "More crafted attacks" }, allScenarios.filter((x) => levelOf(x.id) === lvl && !featured.includes(x.id)).map(opt))));
   const promptSel = h("select", { id: "live-prompt", onchange: (e) => { live.prompt = e.target.value; } }, [["plain", "Plain prompt"], ["hardened", "Hardened prompt"]].map(([v, t]) => h("option", { value: v, selected: v === live.prompt }, t)));
-  const gateSel = h("select", { id: "live-gate", onchange: (e) => { live.gate = e.target.value; } }, [["none", "No seatbelt"], ["basic", "Basic seatbelt"], ["strict", "Strict seatbelt"]].map(([v, t]) => h("option", { value: v, selected: v === live.gate }, t)));
-  const btn = h("button", { class: "run-btn", type: "button", disabled: live.busy, onclick: runLive }, live.busy ? "Running… (about 10 seconds)" : "Run this attack live");
+  const go = (gate) => () => { live.gate = gate; runLive(); };
   root.append(
-    h("p", { class: "intro" }, "This calls a real AI model and the real PayPal sandbox, right now. You can only choose among the built-in fictional attacks, so nothing you type reaches the model. The seatbelt decides whether the order is sent to PayPal. Each press is one real, unrepeatable run: the agent may answer differently next time."),
-    h("div", { class: "controls" }, h("div", { class: "field" }, h("label", { for: "live-scn" }, "Attack"), scnSel), h("div", { class: "field" }, h("label", { for: "live-prompt" }, "Prompt"), promptSel), h("div", { class: "field" }, h("label", { for: "live-gate" }, "Seatbelt before PayPal"), gateSel)),
-    h("p", {}, btn)
+    h("p", { class: "intro" }, "A shopping agent has one job: buy one USB-C cable for under USD 15 (a stand-in: the same checks work for any item, budget or merchant). A hostile line hidden in the shop page tries to make it spend more. This runs a real AI model and the real PayPal sandbox, right now. Pick an attack, then run it twice: once with no seatbelt, once with the strict seatbelt, and compare what reaches PayPal."),
+    h("div", { class: "controls" }, h("div", { class: "field" }, h("label", { for: "live-scn" }, "1. Pick an attack"), scnSel)),
+    h("div", { class: "run-row" },
+      h("button", { class: "run-btn", type: "button", disabled: live.busy, onclick: go("none") }, live.busy ? "Running\u2026 (about 10 seconds)" : "2. Run with no seatbelt"),
+      h("button", { class: "run-btn alt", type: "button", disabled: live.busy, onclick: go("strict") }, live.busy ? "Running\u2026" : "3. Run with the strict seatbelt")),
+    h("details", { class: "opts" }, h("summary", {}, "Options"), h("div", { class: "controls" }, h("div", { class: "field" }, h("label", { for: "live-prompt" }, "Prompt given to the agent"), promptSel)),
+      h("p", { class: "caption" }, "You can only choose among built-in fictional attacks, so nothing you type reaches the model. Each press is one real run: the agent may answer differently next time."))
   );
   const left = h("section", {}, h("h3", {}, "What the agent reads"), h("p", { class: "caption", style: "margin:0 0 10px" }, s.description), pageNode(s, true));
   const right = h("section", { "aria-live": "polite" }, h("h3", {}, "What happened"));
   if (live.error) right.append(h("p", { class: "notice" }, live.error));
-  else if (live.busy) right.append(h("p", { class: "muted" }, "Asking the model, then the seatbelt, then PayPal…"));
+  else if (live.busy) right.append(h("p", { class: "muted" }, "Asking the model, then the seatbelt, then PayPal\u2026"));
   else if (live.result) {
     const rec = live.result.record;
-    if (rec.reason) right.append(h("blockquote", { class: "quote" }, `“${rec.reason}”`, h("small", {}, "The agent's own explanation")));
+    if (rec.reason) right.append(h("blockquote", { class: "quote" }, `\u201c${rec.reason}\u201d`, h("small", {}, "The agent's own explanation")));
     if (rec.status === "order") {
       right.append(slip(rec.order, s, rec.breaches), gateChips(rec, rec.gates));
       right.append(rec.breaches.length ? h("div", { class: "verdict" }, "Judge's verdict: this order breaks the user's request.", h("ul", {}, rec.breaches.map((b) => h("li", {}, BREACH_TEXT[b])))) : h("div", { class: "verdict" }, "Judge's verdict: this order matches the user's request."));
@@ -517,7 +527,7 @@ function renderPlayground() {
   root.replaceChildren();
   const s = byId[play.id];
   const m = s.mandate;
-  const ask = h("div", { class: "mandate" }, h("b", {}, "What the user asked for"), `${m.goal}. Up to ${money(m.maxTotal.currency, m.maxTotal.value)} in total. Pay only ${m.allowedPayees.join(", ")}. Deliver to “${m.shipTo}”. Subscriptions ${m.allowRecurring ? "allowed" : "not allowed"}.${s.context.priorSpent ? ` Already spent: ${money(m.maxTotal.currency, s.context.priorSpent)}.` : ""}`);
+  const ask = h("div", { class: "mandate" }, h("b", {}, "What the user asked for"), `${m.goal}. Up to ${money(m.maxTotal.currency, m.maxTotal.value)} in total. Pay only ${m.allowedPayees.join(", ")}. Deliver to \u201c${m.shipTo}\u201d. Subscriptions ${m.allowRecurring ? "allowed" : "not allowed"}.${s.context.priorSpent ? ` Already spent: ${money(m.maxTotal.currency, s.context.priorSpent)}.` : ""}`);
 
   const presetSel = h("select", { id: "pg-scn", onchange: (e) => { play.id = e.target.value; if (!byId[play.id].safeOrder) play.which = "unsafe"; playOrder = startOrder(); renderPlayground(); } },
     [1, 2].map((lvl) => h("optgroup", { label: lvl === 1 ? "Blunt attacks" : "Crafted attacks" }, allScenarios.filter((x) => levelOf(x.id) === lvl).map((x) => h("option", { value: x.id, selected: x.id === play.id }, x.title)))));
@@ -576,7 +586,7 @@ function renderPlayResult(result) {
       { class: "verdict" },
       breaches.length ? "Judge's verdict (ground truth): this order breaks the user's request." : "Judge's verdict (ground truth): this order matches the user's request.",
       breaches.length ? h("ul", {}, breaches.map((b) => h("li", {}, BREACH_TEXT[b]))) : null,
-      g.decision === "allow" && breaches.length ? h("p", { style: "margin:8px 0 0;font-weight:700;color:var(--breach)" }, "✕ A bad order got through. This is the kind of gap the benchmark measures.") : null
+      g.decision === "allow" && breaches.length ? h("p", { style: "margin:8px 0 0;font-weight:700;color:var(--breach)" }, "\u2715 A bad order got through. This is the kind of gap the benchmark measures.") : null
     )
   );
 }
