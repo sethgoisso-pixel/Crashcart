@@ -390,11 +390,51 @@ function renderLab() {
       if (rec.breaches.length) right.append(h("div", { class: "verdict" }, "Judge's verdict: this order breaks the user's request.", h("ul", {}, rec.breaches.map((b) => h("li", {}, BREACH_TEXT[b])))));
       else right.append(h("div", { class: "verdict" }, "Judge's verdict: this order matches the user's request."));
       right.append(
-        h("p", { class: "pp" }, rec.paypal?.id ? ["PayPal sandbox order: ", h("code", {}, rec.paypal.id), ` (${rec.paypal.status})`] : "PayPal sandbox order: none recorded for this run (live PayPal runs are listed separately in the repository).")
+        h("p", { class: "pp" }, rec.paypal?.id ? ["PayPal sandbox order: ", h("code", {}, rec.paypal.id), ` (${rec.paypal.status})`] : "PayPal sandbox order: none recorded for this run (the PayPal sandbox runs are in their own section).")
       );
     } else right.append(noOrderNote(rec));
   }
   root.append(h("div", { class: "lab-grid" }, left, right));
+}
+
+// ---------- PayPal sandbox runs ----------
+function renderPaypal() {
+  const root = $("#paypal-body");
+  root.replaceChildren();
+  const runs = data.runs.filter((r) => r.meta.paypalGate && r.meta.level !== "all" && r.records.some((x) => x.paypal));
+  if (runs.length === 0) {
+    root.append(h("p", {}, "No PayPal sandbox runs have been published yet."));
+    return;
+  }
+  const order = ["none", "strict", "basic"];
+  runs.sort((a, b) => order.indexOf(a.meta.paypalGate) - order.indexOf(b.meta.paypalGate));
+  const cards = runs.map((run) => {
+    const gate = run.meta.paypalGate;
+    const orders = run.records.filter((r) => r.status === "order");
+    const sent = orders.filter((r) => r.paypal?.id);
+    const sentBad = sent.filter((r) => r.breaches.length);
+    const held = orders.length - sent.length;
+    const heldBad = orders.filter((r) => !r.paypal?.id && r.breaches.length).length;
+    const heldGood = held - heldBad;
+    const ok = sent.filter((r) => r.paypal.matches).length;
+    return h(
+      "div",
+      { class: `pp-card ${sentBad.length ? "bad" : "good"}` },
+      h("h3", {}, gate === "none" ? "No seatbelt" : `${gate[0].toUpperCase()}${gate.slice(1)} seatbelt`),
+      h("p", { class: "pp-big num" }, String(sentBad.length), h("small", {}, " bad orders created at PayPal")),
+      h("ul", {},
+        h("li", {}, `${orders.length} orders placed by the agent (${run.records.length} runs, ${prettyModel(run.meta.model)}, ${promptName(run.meta.promptVariant)})`),
+        h("li", {}, `${sent.length} created in the PayPal sandbox, ${ok} read back with the same amount`),
+        gate === "none" ? null : h("li", {}, `${held} stopped before PayPal: ${heldBad} bad, ${heldGood} good`),
+      ),
+      h("details", {}, h("summary", {}, "Sandbox order ids"), h("p", { class: "ids" }, sent.map((r) => h("code", {}, `${r.paypal.id}${r.breaches.length ? " (bad)" : ""}`))))
+    );
+  });
+  root.append(
+    h("p", { class: "intro" }, "Same attacks, same agent setup, run twice against the real PayPal sandbox. The only difference is which orders the seatbelt lets through. Orders are created and read back, never captured. No real money."),
+    h("div", { class: "pp-grid" }, cards),
+    h("p", { class: "caption" }, "These are two separate live runs, so the agent's own answers differ a little between them. Attacks: the 11 crafted ones, 5 runs each.")
+  );
 }
 
 // ---------- playground ----------
@@ -503,6 +543,7 @@ renderHero();
 renderScoreboard();
 renderHeat();
 renderLab();
+renderPaypal();
 renderPlayground();
 renderMethod();
 $("#built").textContent = `Data built ${new Date(data.generatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC from ${data.runs.length} recorded run files.`;
