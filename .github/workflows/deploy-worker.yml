@@ -1,0 +1,37 @@
+name: Deploy worker
+
+# Manual only. Publishes worker/worker.js to Cloudflare Workers (free plan) and sets its three
+# secrets from the repository secrets. Needs these repository secrets:
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID   (Cloudflare)
+#   LLM_API_KEY, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET   (already used by the other workflows)
+# The secrets are never printed and never stored in the repository.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy the worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Set the worker secrets
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            LLM_API_KEY
+            PAYPAL_CLIENT_ID
+            PAYPAL_CLIENT_SECRET
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
