@@ -33,7 +33,7 @@ const realFetch: FetchLike = (url, init) => fetch(url, init);
 const money = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
 export async function getAccessToken(creds: PayPalCreds, fetchImpl: FetchLike = realFetch): Promise<string> {
-  const basic = Buffer.from(`${creds.clientId}:${creds.clientSecret}`).toString("base64");
+  const basic = btoa(`${creds.clientId}:${creds.clientSecret}`); // btoa also exists in Cloudflare Workers (Buffer does not)
   const res = await fetchImpl(`${SANDBOX_BASE}/v1/oauth2/token`, {
     method: "POST",
     headers: { authorization: `Basic ${basic}`, "content-type": "application/x-www-form-urlencoded" },
