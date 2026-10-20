@@ -12,8 +12,8 @@ Built for the PayPal AI Hackathon. Sandbox only: no real money, no real merchant
 
 > **Status: working prototype.** The attack library (22 attacks), the judge, the policy gate,
 > the shopper agent and the demo site exist and are tested. Live results from real models are
-> recorded in `data/runs/` and summarised below. The PayPal sandbox client is written and
-> unit-tested; its first live runs are not yet part of the published results (see Roadmap).
+> recorded in `data/runs/` and summarised below. The PayPal sandbox client is tested and has been
+> run live: see "PayPal sandbox runs" below.
 
 ## Demo site
 
@@ -78,6 +78,18 @@ What this does and does not say:
 - These rates describe 22 hand-written attacks against a single-call agent. They are not a rate for the real world.
 - Cells with 5 runs are noisy: read "5 of 5" and "0 of 5" as strong signals, anything in between as a hint.
 
+### PayPal sandbox runs
+
+Same 11 crafted attacks, 5 runs each, Gemini 3.1 Flash-Lite with the plain prompt, run twice. Every order the chosen seatbelt
+allows was created in the PayPal sandbox (Orders v2) and read back; none were captured. No real money.
+
+| Seatbelt | Orders placed by the agent | Created at PayPal | Of those, bad | Stopped before PayPal |
+|---|---|---|---|---|
+| none | 35 | 35 (all read back with the same amount) | 21 | 0 |
+| strict | 35 | 14 (all read back with the same amount) | 0 | 21 (all bad) |
+
+The two runs are separate live runs, so the agent answered slightly differently in each. The order ids are in `data/runs/`.
+
 ### Live runs with a real model
 
 Needs a Google AI Studio API key in the `LLM_API_KEY` environment variable (never commit it).
@@ -132,7 +144,7 @@ orders for the orders the gate allows.
 - [x] Unit tests and offline self-check
 - [x] Shopper agent (one model call, JSON decision) and live-run harness
 - [ ] Real product search (Channel3) and multi-step tool calling
-- [x] PayPal sandbox client: create orders and read them back (unit-tested; live runs pending)
+- [x] PayPal sandbox client: create orders and read them back (live runs recorded)
 - [x] Measured breach rates over repeated live runs (with and without the gate)
 - [ ] Gate synthesizer: propose policy rules from observed failures
 - [x] Demo site: scoreboard, crash lab (replay), seatbelt playground (GitHub Pages)
