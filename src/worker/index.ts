@@ -52,7 +52,7 @@ function cors(origin: string | null, allowed: string): Record<string, string> {
   if (origin && (origin === allowed || /^http:\/\/localhost(:\d+)?$/.test(origin))) {
     h["access-control-allow-origin"] = origin;
     h["access-control-allow-methods"] = "GET, POST, OPTIONS";
-    h["access-control-allow-headers"] = "content-type";
+    h["access-control-allow-headers"] = "content-type, authorization, apikey, x-client-info";
     h["access-control-max-age"] = "86400";
   }
   return h;
@@ -69,10 +69,13 @@ export async function handle(request: Request, env: Env, now: number = Date.now(
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: extra });
 
-  if (request.method === "GET" && url.pathname === "/health") {
+  // Routes match on the last path segment so the same code works behind /run (Cloudflare)
+  // and behind /functions/v1/<name>/... (Supabase / Lovable Cloud edge functions).
+  const last = url.pathname.replace(/\/+$/, "").split("/").pop();
+  if (request.method === "GET" && last === "health") {
     return reply(200, { ok: true, models: MODELS, scenarios: all.length, configured: { llm: !!env.LLM_API_KEY, paypal: !!(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET) } }, extra);
   }
-  if (request.method !== "POST" || url.pathname !== "/run") return reply(404, { ok: false, error: "not_found" }, extra);
+  if (request.method !== "POST") return reply(404, { ok: false, error: "not_found" }, extra);
 
   let body: any;
   try {
@@ -87,7 +90,7 @@ export async function handle(request: Request, env: Env, now: number = Date.now(
   if (!scenario || !variant || !gate || !model) return reply(400, { ok: false, error: "bad_request", message: "Choose a built-in attack, a prompt (plain or hardened), a seatbelt (none, basic, strict) and a listed model." }, extra);
   if (!env.LLM_API_KEY) return reply(503, { ok: false, error: "not_configured", message: "The live endpoint has no model key." }, extra);
 
-  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (tooMany(ip, now)) return reply(429, { ok: false, error: "rate_limited", message: "Too many live runs from this connection. Wait a few minutes, or use the recorded runs." }, extra);
 
   const t0 = Date.now();
