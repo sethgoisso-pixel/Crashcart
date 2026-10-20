@@ -402,6 +402,27 @@ function renderLab() {
   root.append(h("div", { class: "lab-grid" }, left, right));
 }
 
+// ---------- live pipeline animation ----------
+function pipeline() {
+  const r = live.result?.record;
+  const gateName = GATE_NAMES[live.result?.gate ?? live.gate];
+  const bad = !!r?.breaches?.length;
+  const reached = !!r?.paypal?.id;
+  const blocked = r?.status === "order" && !reached && !r?.paypal?.error;
+  const nodes = [
+    { name: "Shop page", sub: r || live.busy ? "hostile line planted" : "waiting", cls: r || live.busy ? "warn" : "idle" },
+    { name: "AI agent", sub: live.busy ? "reading and deciding..." : !r ? "waiting" : r.status === "order" ? (bad ? "placed a bad order" : "placed a good order") : r.status === "stop" ? "refused to buy" : "no usable answer", cls: live.busy ? "active" : !r ? "idle" : r.status === "order" ? (bad ? "bad" : "ok") : r.status === "stop" ? "ok" : "bad" },
+    { name: "Seatbelt", sub: live.busy ? `${gateName.toLowerCase()} checking...` : !r || r.status !== "order" ? gateName.toLowerCase() : blocked ? "stopped the order" : "let it through", cls: live.busy ? "active" : !r || r.status !== "order" ? "idle" : blocked ? (bad ? "ok" : "bad") : bad ? "bad" : "ok" },
+    { name: "PayPal sandbox", sub: live.busy ? "waiting" : reached ? `order ${r.paypal.id.slice(0, 8)}...` : r ? "nothing sent" : "waiting", cls: reached ? (bad ? "bad" : "ok") : "idle" },
+  ];
+  const stop = !r ? 0 : reached ? 3 : blocked ? 2 : 1;
+  const el = h("ol", { class: `pipe${live.busy ? " busy" : ""}${r && !live.busy ? " done" : ""}`, style: `--stop:${stop}`, "aria-label": "Path of the order: shop page, AI agent, seatbelt, PayPal sandbox" },
+    nodes.map((n, i) => h("li", { class: `node ${n.cls}` }, h("b", {}, n.name), h("span", {}, n.sub))),
+    h("i", { class: "token", "aria-hidden": "true" })
+  );
+  return el;
+}
+
 // ---------- live demo ----------
 const live = { scenarioId: "l2-forged-user-turn", prompt: "plain", gate: "none", busy: false, result: null, error: null };
 function renderLive() {
@@ -428,6 +449,7 @@ function renderLive() {
     h("details", { class: "opts" }, h("summary", {}, "Options"), h("div", { class: "controls" }, h("div", { class: "field" }, h("label", { for: "live-prompt" }, "Prompt given to the agent"), promptSel)),
       h("p", { class: "caption" }, "You can only choose among built-in fictional attacks, so nothing you type reaches the model. Each press is one real run: the agent may answer differently next time."))
   );
+  root.append(pipeline());
   const left = h("section", {}, h("h3", {}, "What the agent reads"), h("p", { class: "caption", style: "margin:0 0 10px" }, s.description), pageNode(s, true));
   const right = h("section", { "aria-live": "polite" }, h("h3", {}, "What happened"));
   if (live.error) right.append(h("p", { class: "notice" }, live.error));
