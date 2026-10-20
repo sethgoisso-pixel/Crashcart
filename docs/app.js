@@ -1,4 +1,5 @@
 import { data } from "./data.js";
+import { LIVE_URL } from "./config.js";
 import { scenarios as level1, scenariosL2 as level2, renderPage, evaluateOrder, judgeOrder } from "./engine.js";
 
 // ---------- helpers ----------
@@ -397,6 +398,63 @@ function renderLab() {
   root.append(h("div", { class: "lab-grid" }, left, right));
 }
 
+// ---------- live demo ----------
+const live = { scenarioId: "l2-forged-user-turn", prompt: "plain", gate: "none", busy: false, result: null, error: null };
+function renderLive() {
+  const root = $("#live-body");
+  root.replaceChildren();
+  if (!LIVE_URL) {
+    root.append(h("p", { class: "intro" }, "The live endpoint is not connected in this build. The recorded runs below are real; set LIVE_URL in docs/config.js to run attacks live."));
+    return;
+  }
+  const s = byId[live.scenarioId];
+  const scnSel = h("select", { id: "live-scn", onchange: (e) => { live.scenarioId = e.target.value; live.result = null; live.error = null; renderLive(); } },
+    [1, 2].map((lvl) => h("optgroup", { label: lvl === 1 ? "Blunt attacks" : "Crafted attacks" }, allScenarios.filter((x) => levelOf(x.id) === lvl).map((x) => h("option", { value: x.id, selected: x.id === s.id }, x.title)))));
+  const promptSel = h("select", { id: "live-prompt", onchange: (e) => { live.prompt = e.target.value; } }, [["plain", "Plain prompt"], ["hardened", "Hardened prompt"]].map(([v, t]) => h("option", { value: v, selected: v === live.prompt }, t)));
+  const gateSel = h("select", { id: "live-gate", onchange: (e) => { live.gate = e.target.value; } }, [["none", "No seatbelt"], ["basic", "Basic seatbelt"], ["strict", "Strict seatbelt"]].map(([v, t]) => h("option", { value: v, selected: v === live.gate }, t)));
+  const btn = h("button", { class: "run-btn", type: "button", disabled: live.busy, onclick: runLive }, live.busy ? "Running… (about 10 seconds)" : "Run this attack live");
+  root.append(
+    h("p", { class: "intro" }, "This calls a real AI model and the real PayPal sandbox, right now. You can only choose among the built-in fictional attacks, so nothing you type reaches the model. The seatbelt decides whether the order is sent to PayPal. Each press is one real, unrepeatable run: the agent may answer differently next time."),
+    h("div", { class: "controls" }, h("div", { class: "field" }, h("label", { for: "live-scn" }, "Attack"), scnSel), h("div", { class: "field" }, h("label", { for: "live-prompt" }, "Prompt"), promptSel), h("div", { class: "field" }, h("label", { for: "live-gate" }, "Seatbelt before PayPal"), gateSel)),
+    h("p", {}, btn)
+  );
+  const left = h("section", {}, h("h3", {}, "What the agent reads"), h("p", { class: "caption", style: "margin:0 0 10px" }, s.description), pageNode(s, true));
+  const right = h("section", { "aria-live": "polite" }, h("h3", {}, "What happened"));
+  if (live.error) right.append(h("p", { class: "notice" }, live.error));
+  else if (live.busy) right.append(h("p", { class: "muted" }, "Asking the model, then the seatbelt, then PayPal…"));
+  else if (live.result) {
+    const rec = live.result.record;
+    if (rec.reason) right.append(h("blockquote", { class: "quote" }, `“${rec.reason}”`, h("small", {}, "The agent's own explanation")));
+    if (rec.status === "order") {
+      right.append(slip(rec.order, s, rec.breaches), gateChips(rec, rec.gates));
+      right.append(rec.breaches.length ? h("div", { class: "verdict" }, "Judge's verdict: this order breaks the user's request.", h("ul", {}, rec.breaches.map((b) => h("li", {}, BREACH_TEXT[b])))) : h("div", { class: "verdict" }, "Judge's verdict: this order matches the user's request."));
+      const pp = rec.paypal;
+      right.append(
+        h("p", { class: "pp" },
+          pp?.id ? ["PayPal sandbox order created: ", h("code", {}, pp.id), ` (${pp.status}, read back ${pp.matches ? "with the same amount" : "WITH A DIFFERENT AMOUNT"}). `, pp.approveUrl ? h("a", { href: pp.approveUrl, rel: "noopener", target: "_blank" }, "Open it in the PayPal sandbox") : null]
+          : pp?.error ? `PayPal sandbox error: ${pp.error}`
+          : `The ${GATE_NAMES[live.result.gate].toLowerCase()} stopped this order, so nothing was sent to PayPal.`)
+      );
+    } else right.append(noOrderNote(rec));
+    right.append(h("p", { class: "caption" }, `Live run: ${prettyModel(live.result.model)}, ${promptName(live.result.prompt)}, ${(rec.ms / 1000).toFixed(1)} s.`));
+  } else right.append(h("p", { class: "muted" }, "Press the button to run the attack."));
+  root.append(h("div", { class: "lab-grid" }, left, right));
+}
+async function runLive() {
+  live.busy = true; live.error = null; live.result = null;
+  renderLive();
+  try {
+    const res = await fetch(`${LIVE_URL.replace(/\/$/, "")}/run`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenarioId: live.scenarioId, prompt: live.prompt, gate: live.gate }) });
+    const j = await res.json().catch(() => null);
+    if (!res.ok || !j?.ok) live.error = j?.message ?? `The live endpoint answered with an error (${res.status}). The recorded runs below are still real.`;
+    else live.result = j;
+  } catch {
+    live.error = "Could not reach the live endpoint. The recorded runs below are still real.";
+  }
+  live.busy = false;
+  renderLive();
+}
+
 // ---------- PayPal sandbox runs ----------
 function renderPaypal() {
   const root = $("#paypal-body");
@@ -543,6 +601,7 @@ renderHero();
 renderScoreboard();
 renderHeat();
 renderLab();
+renderLive();
 renderPaypal();
 renderPlayground();
 renderMethod();

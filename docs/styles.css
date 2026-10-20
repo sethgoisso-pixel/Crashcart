@@ -209,3 +209,7 @@ input[type="number"] { width: 110px; }
 .pp-card ul { margin: 10px 0; padding-left: 18px; }
 .ids { display: flex; flex-wrap: wrap; gap: 6px; }
 .ids code { font-size: .8rem; }
+
+.run-btn { font: inherit; font-weight: 700; background: #FFC40D; color: #12181F; border: 2px solid #12181F; border-radius: 10px; padding: 12px 20px; cursor: pointer; min-height: 48px; }
+.run-btn:disabled { opacity: .6; cursor: progress; }
+.run-btn:focus-visible { outline: 3px solid #12181F; outline-offset: 3px; }
