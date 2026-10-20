@@ -198,6 +198,15 @@ function renderHero() {
       `Crashcart crash-tests AI shopping agents. It plants hostile text where an agent reads it, checks what the agent actually orders, and tests whether a policy gate outside the model stops the bad order before it reaches PayPal. ${total.toLocaleString("en")} recorded runs so far.`
     )
   );
+  root.append(
+    h(
+      "ol",
+      { class: "steps" },
+      h("li", {}, h("b", {}, "Attack."), " Hostile text is planted in a fictional shop page."),
+      h("li", {}, h("b", {}, "Judge."), " We check what the AI shopper really ordered, against what the user asked."),
+      h("li", {}, h("b", {}, "Seatbelt."), " A rule check outside the AI decides if the order may reach PayPal.")
+    )
+  );
   if (!sample) return;
   const setting = settings.find((st) => st.records.includes(sample));
   root.append(
@@ -297,6 +306,11 @@ function renderScoreboard() {
       )
     )
   );
+  // Plain-language takeaways first; the per-model bars live behind a toggle.
+  const tk = root.querySelector(".takeaways");
+  const full = h("details", { class: "full-board" }, h("summary", {}, "Per-model results, bar by bar"), root.querySelector(".intro"), root.querySelector(".legend"), root.querySelector(".board"));
+  root.prepend(full);
+  root.prepend(tk);
 }
 
 // ---------- heatmap ----------
