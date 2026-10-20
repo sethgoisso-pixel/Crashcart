@@ -444,12 +444,20 @@ async function runLive() {
   live.busy = true; live.error = null; live.result = null;
   renderLive();
   try {
-    const res = await fetch(`${LIVE_URL.replace(/\/$/, "")}/run`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenarioId: live.scenarioId, prompt: live.prompt, gate: live.gate }) });
+    const res = await fetch(`${LIVE_URL.replace(/\/$/, "")}/run`, { method: "POST", headers: { "content-type": "text/plain;charset=UTF-8" }, body: JSON.stringify({ scenarioId: live.scenarioId, prompt: live.prompt, gate: live.gate }) });
     const j = await res.json().catch(() => null);
     if (!res.ok || !j?.ok) live.error = j?.message ?? `The live endpoint answered with an error (${res.status}). The recorded runs below are still real.`;
     else live.result = j;
   } catch {
-    live.error = "Could not reach the live endpoint. The recorded runs below are still real.";
+    // Tell "unreachable" apart from "reachable but the browser blocked the answer (CORS)".
+    let reachable = false;
+    try {
+      await fetch(`${LIVE_URL.replace(/\/$/, "")}/health`, { mode: "no-cors" });
+      reachable = true;
+    } catch {}
+    live.error = reachable
+      ? "The live endpoint is up, but the browser blocked its answer for this page (cross-origin rule). The recorded runs below are still real."
+      : "Could not reach the live endpoint (network problem or the endpoint is offline). The recorded runs below are still real.";
   }
   live.busy = false;
   renderLive();
