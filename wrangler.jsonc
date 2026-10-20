@@ -1,0 +1,7 @@
+{
+  // Cloudflare Worker for the live demo. Cloudflare builds it straight from this repository.
+  "name": "crashcart",
+  "main": "worker/worker.js",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true
+}
