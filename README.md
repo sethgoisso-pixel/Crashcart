@@ -24,11 +24,18 @@ by hand. Rebuild its generated files with `npm run build:site` (needs the dev de
 
 ### Live endpoint
 
-`worker/worker.js` (built from `src/worker/` with `npm run build:worker`) is a Cloudflare Worker that runs ONE
-attack on demand: real model, the judge, the three seatbelts, and the PayPal sandbox order if the chosen seatbelt allows it.
-It only accepts a built-in attack id, a prompt name, a seatbelt level and a listed model, so no free text reaches the
-model provider. Secrets (`LLM_API_KEY`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`) are Worker secrets, never in the repository.
-Set the Worker's address in `docs/config.js`. Setup steps: `docs/DEPLOY_LIVE.md`.
+The "Try it live" button on the demo site calls one endpoint that runs ONE attack on demand: real model, the judge,
+the three seatbelts, and a PayPal sandbox order if the chosen seatbelt allows it. The code is `src/worker/index.ts`
+(tested in `tests/worker.test.ts`). `npm run build:worker` bundles it into:
+
+- `lovable/crashcart.ts`: the module used by the demo. It is hosted as a public server route (`/api/public/crashcart`)
+  in a Lovable Cloud project that holds the three secrets.
+- `worker/worker.js`: the same code as a Cloudflare Worker (an alternative host; not used for the demo).
+
+The endpoint only accepts a built-in attack id, a prompt name, a seatbelt level and a listed model, so no free text
+reaches the model provider. Secrets (`LLM_API_KEY`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`) live in the host's secret
+store, never in this repository. The endpoint address is set in `docs/config.js`. A per-connection limit protects the
+free model quota; when the quota is used up, the site says so and the recorded runs stay available.
 
 ## How it works
 
