@@ -22,6 +22,14 @@ real recorded runs, and a "seatbelt playground" that runs the real gate and judg
 browser. Numbers on the site are computed in the browser from the run files; nothing is typed in
 by hand. Rebuild its generated files with `npm run build:site` (needs the dev dependencies).
 
+### Live endpoint
+
+`worker/worker.js` (built from `src/worker/` with `npm run build:worker`) is a Cloudflare Worker that runs ONE
+attack on demand: real model, the judge, the three seatbelts, and the PayPal sandbox order if the chosen seatbelt allows it.
+It only accepts a built-in attack id, a prompt name, a seatbelt level and a listed model, so no free text reaches the
+model provider. Secrets (`LLM_API_KEY`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`) are Worker secrets, never in the repository.
+Set the Worker's address in `docs/config.js`. Setup steps: `docs/DEPLOY_LIVE.md`.
+
 ## How it works
 
 1. **Mandate**: what the human asked for (goal, budget, trusted merchants, expected item,

@@ -4,13 +4,16 @@
   "description": "Crash-test lab for AI shopping agents, built on the PayPal sandbox.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22.18" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "test": "node --test \"tests/*.test.ts\"",
     "selfcheck": "node src/selfcheck.ts",
     "live": "node src/run.ts",
     "build:site": "node scripts/build-site.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:worker": "node scripts/build-worker.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
