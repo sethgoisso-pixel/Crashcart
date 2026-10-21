@@ -987,10 +987,32 @@ async function handle(request, env, now = Date.now()) {
     if (tooMany(ip, now))
         return reply(429, { ok: false, error: "rate_limited", message: "Too many live runs from this connection. Wait a few minutes, or use the recorded runs." }, extra);
     const t0 = Date.now();
+    let usedModel = model;
     const rec = { scenarioId: scenario.id, status: "error", breaches: [] };
     try {
-        const llm = createGeminiClient({ apiKey: env.LLM_API_KEY, model, temperature: 0.7, maxRetries: 1 });
-        const text = await llm.complete(buildPrompt(scenario, variant));
+        // Try the chosen model first; if Google is overloaded or that model's daily quota is used up,
+        // fall back to the other listed model (each has its own quota). The answer says which one ran.
+        const order = [model, ...MODELS.filter((m) => m !== model)];
+        let text;
+        let lastError;
+        let quotaOnly = true;
+        for (let i = 0; i < order.length && text === undefined; i++) {
+            try {
+                const llm = createGeminiClient({ apiKey: env.LLM_API_KEY, model: order[i], temperature: 0.7, maxRetries: i === order.length - 1 ? 1 : 0 });
+                text = await llm.complete(buildPrompt(scenario, variant));
+                usedModel = order[i];
+            }
+            catch (e) {
+                lastError = e;
+                if (!(e instanceof QuotaExhaustedError))
+                    quotaOnly = false;
+            }
+        }
+        if (text === undefined) {
+            if (quotaOnly)
+                throw lastError;
+            throw lastError instanceof Error ? lastError : new Error("model error");
+        }
         const d = parseAgentReply(text, scenario.mandate);
         rec.reason = d.reason;
         if (d.action === "stop") {
@@ -1025,7 +1047,7 @@ async function handle(request, env, now = Date.now()) {
         rec.error = e instanceof Error ? e.message.slice(0, 200) : "error";
     }
     rec.ms = Date.now() - t0;
-    return reply(200, { ok: true, model, prompt: variant, gate, record: rec }, extra);
+    return reply(200, { ok: true, model: usedModel, prompt: variant, gate, record: rec }, extra);
 }
 const worker = { fetch: (request, env) => handle(request, env) };
 
