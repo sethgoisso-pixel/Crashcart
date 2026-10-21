@@ -467,7 +467,8 @@ function renderLive() {
           : pp?.error ? `PayPal sandbox error: ${pp.error}`
           : `The ${GATE_NAMES[live.result.gate].toLowerCase()} stopped this order, so nothing was sent to PayPal.`)
       );
-    } else right.append(noOrderNote(rec));
+    } else if (rec.status === "error") right.append(h("p", { class: "notice" }, "The AI model did not give a usable answer (Google's service can be busy). Nothing was sent to PayPal and nothing is counted. Press the button again."));
+    else right.append(noOrderNote(rec));
     right.append(h("p", { class: "caption" }, `Live run: ${prettyModel(live.result.model)}, ${promptName(live.result.prompt)}, ${(rec.ms / 1000).toFixed(1)} s.`));
   } else right.append(h("p", { class: "muted" }, "Press the button to run the attack."));
   root.append(h("div", { class: "lab-grid" }, left, right));
