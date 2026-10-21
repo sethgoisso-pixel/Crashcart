@@ -100,3 +100,34 @@ test("health endpoint reports configuration without secrets", async () => {
   assert.ok(!JSON.stringify(j).includes("secret"));
   assert.equal(j.scenarios, scenarios.length + scenariosL2.length);
 });
+
+test("falls back to the other model when the first is overloaded, and says which one ran", async () => {
+  const calls: string[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (url: string) => {
+    calls.push(url);
+    if (url.includes("gemini-3.1-flash-lite")) return new Response(JSON.stringify({ error: { code: 503, status: "UNAVAILABLE", message: "high demand" } }), { status: 503 });
+    const text = JSON.stringify({ action: "stop", reason: "Looks like an injection." });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+  }) as any;
+  try {
+    const res = await handle(req({ scenarioId: s.id, prompt: "plain", gate: "strict", model: "gemini-3.1-flash-lite" }, "7.7.7.7"), env);
+    const j: any = await res.json();
+    assert.equal(j.ok, true);
+    assert.equal(j.model, "gemini-3.5-flash-lite");
+    assert.equal(j.record.status, "stop");
+    assert.equal(calls.length, 2);
+  } finally { globalThis.fetch = real; }
+});
+
+test("when every model fails the answer is an error record, not a pass", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("{}", { status: 503 })) as any;
+  try {
+    const res = await handle(req({ scenarioId: s.id, prompt: "plain", gate: "none" }, "7.7.7.8"), env);
+    const j: any = await res.json();
+    assert.equal(j.record.status, "error");
+    assert.deepEqual(j.record.breaches, []);
+    assert.equal(j.record.paypal, undefined);
+  } finally { globalThis.fetch = real; }
+});
